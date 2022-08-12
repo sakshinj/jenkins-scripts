@@ -1,0 +1,160 @@
+node {
+    stage('variables')
+    {
+ 
+sh '''echo "BUILD_NUMBER" :: $BUILD_NUMBER
+echo "BUILD_ID" :: $BUILD_ID
+echo "BUILD_DISPLAY_NAME" :: $BUILD_DISPLAY_NAME
+echo "JOB_NAME" :: $JOB_NAME
+echo "JOB_BASE_NAME" :: $JOB_BASE_NAME
+echo "BUILD_TAG" :: $BUILD_TAG
+echo "EXECUTOR_NUMBER" :: $EXECUTOR_NUMBER
+echo "NODE_NAME" :: $NODE_NAME
+echo "NODE_LABELS" :: $NODE_LABELS
+echo "WORKSPACE" :: $WORKSPACE
+echo "JENKINS_HOME" :: $JENKINS_HOME
+echo "JENKINS_URL" :: $JENKINS_URL
+echo "BUILD_URL" ::$BUILD_URL
+echo "JOB_URL" :: $JOB_URL'''
+}
+}
+node {
+
+ 
+
+stage ("git clone")
+git credentialsId: 'sakshinj', url: ' https://github.com/sakshinj/todorest28.git'
+
+ 
+
+stage ("compile")
+sh 'mvn compile'
+
+ 
+
+stage ("unit test")
+sh 'mvn test'
+
+ 
+
+stage ("zip unit test report")
+sh 'zip -r site-sakshij.zip target/site/*'
+stage ("package")
+sh 'mvn package'
+
+ 
+
+//image 1.0 flight app wit gpay integration
+stage ("build image")
+sh 'sudo docker build -t sakshij75/todorest:$BUILD_NUMBER.0 .'
+
+ 
+
+stage ("run container")
+sh 'sudo docker run -d -p 8080 sakshij75/todorest:$BUILD_NUMBER.0'
+
+ 
+
+stage ("list containers")
+sh 'sudo docker ps -l'
+
+ 
+
+sleep 5
+
+ 
+
+stage ('docker login')
+sh 'sudo docker login --username=sakshij75 --password=$password'
+
+ 
+
+
+stage ('docker push')
+sh 'sudo docker push sakshij75/todorest:$BUILD_NUMBER.0'
+
+ 
+
+//stage ('Get K8s Nodes')
+//sh 'sudo kubectl get nodes'
+
+ 
+
+stage('deploy todoapp containers')
+ sh 'sudo kubectl create deployment sakshi-$BUILD_NUMBER --image=sakshij75/todorest:$BUILD_NUMBER.0 --port=8080'
+
+ 
+
+ 
+
+stage ('Get deployments')
+sh 'sudo kubectl get deployments'
+
+ 
+
+stage('deploy app behind load balancer')
+sh 'sudo  kubectl expose deployment sakshi-$BUILD_NUMBER --type="LoadBalancer"'
+
+ 
+
+stage ('get svc')
+sh 'sudo kubectl get svc'
+
+ 
+
+stage ('wait 360 secs')
+sleep 360
+
+ 
+
+stage ('delete deployment')
+sh 'kubectl delete deployments sakshi-$BUILD_NUMBER'
+
+ 
+
+
+}
+
+ 
+
+node {
+
+ 
+
+ 
+
+stage('deploy todoapp containers')
+ sh 'sudo kubectl create deployment sakshi-$BUILD_NUMBER --image=sakshij75/todorest:$BUILD_NUMBER.0 --port=8080'
+
+ 
+
+ 
+
+stage ('Get deployments')
+sh 'sudo kubectl get deployments'
+
+
+
+stage('deploy app behind load balancer')
+sh 'sudo  kubectl expose deployment sakshi-$BUILD_NUMBER --type="LoadBalancer"'
+
+stage('autoscale deployment')
+sh 'kubectl autoscale deployment sakshi-$BUILD_NUMBER --cpu-percent=50 --min=2 --max=10'
+
+stage ('get svc')
+sh 'sudo kubectl get svc'
+
+ 
+
+stage ('wait 360 secs')
+sleep 360
+
+ 
+
+stage ('delete deployment')
+sh 'kubectl delete deployments sakshi-$BUILD_NUMBER'
+
+ 
+
+
+}
